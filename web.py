@@ -392,7 +392,7 @@ with tab1:
                                         - **Type**: {type_name}
                                         - **Processor**: {processor}
                                         - **RAM**: {ram} GB
-                                        """, unsafe_allow_html=True)
+                                        """)
                                 
                                 with spec_col2:
                                     with stylable_container(
@@ -407,74 +407,186 @@ with tab1:
                                         """
                                     ):
                                         st.markdown(f"""
+                                        - **Display**: {screen_size}" {resolution} {'(Touchscreen)' if touchscreen else ''}
+                                        - **Storage**: {hdd} GB HDD + {ssd} GB SSD
                                         - **GPU**: {gpu}
-                                        - **Operating System**: {os_laptop}
-                                        - **HDD**: {hdd} GB
-                                        - **SSD**: {ssd} GB
-                                        """, unsafe_allow_html=True)
+                                        - **OS**: {os_laptop}
+                                        """)
+                            except Exception as e:
+                                st.error(f"Error making prediction: {e}")
                         else:
-                            st.warning("Please fill in all the specifications to get the price prediction.")
+                            st.warning("Please fill in all required fields")
     else:
-        st.error("Failed to load laptop dataset. Please check the file path and try again.")
+        st.error("Data not available. Please check the file path and try again.")
 
 # Tab 2: Expert Advice
 with tab2:
-    st.markdown("<h1 style='text-align: center; color: #BB86FC;'>Laptop Buying Assistant</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #BB86FC;'>Laptop Expert Advisor</h1>", unsafe_allow_html=True)
     
-    gemini_model = configure_gemini()
-
-    if gemini_model:
-        # Input fields
-        budget = st.number_input("Enter your budget (₹)", min_value=10000, max_value=500000, step=10000)
-        requirements = st.text_area("What will you use the laptop for? (e.g., gaming, work, study)")
-
-        # Get recommendations button
-        if st.button("Get Recommendations"):
-            if budget and requirements:
-                # Scrape laptop data based on budget and requirements
-                laptops = scrape_laptop_data(budget, requirements)
-
-                if laptops:
-                    st.markdown("<h3>Recommended Laptops</h3>", unsafe_allow_html=True)
-                    for laptop in laptops:
-                        st.markdown(f"""
-                        <div class='bento-box'>
-                            <h4>{laptop['name']}</h4>
-                            <p>Price: ₹{laptop['price']}</p>
-                            <p>Specs: {laptop['specs']}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("No laptops found matching your criteria. Please adjust your budget or requirements.")
-            else:
-                st.warning("Please enter both your budget and requirements.")
-
-        # Chat interface with Gemini
-        st.subheader("Ask for more specific advice")
+    # Create a centered container
+    chat_col1, chat_col2, chat_col3 = st.columns([1, 10, 1])
+    
+    with chat_col2:
+        # Initialize Gemini AI
+        gemini_model = configure_gemini()
         
-        # Display chat messages from history
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-
-        # Chat input
-        prompt = st.chat_input("Ask me anything about laptops!")
-        if prompt:
-            # Add user message to chat history
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-
-            # Get response from Gemini
-            try:
-                response = gemini_model.generate_content(prompt)
-                answer = response.text
-            except Exception as e:
-                answer = f"Sorry, I encountered an error: {e}"
+        if gemini_model:
+            # Chat interface
+            st.markdown("""
+            <div style='background-color: #1E1E1E; border-radius: 10px; padding: 20px; margin-bottom: 20px;'>
+                <p>Welcome to the Laptop Expert Advisor! Ask me anything about laptops, and I'll provide expert advice.</p>
+                <p>Example questions:</p>
+                <ul>
+                    <li>What's the difference between SSD and HDD?</li>
+                    <li>Recommend a laptop for video editing under ₹80,000</li>
+                    <li>What specs do I need for gaming?</li>
+                    <li>Which processor is better for programming?</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
             
-            # Add assistant message to chat history
-            st.session_state.messages.append({"role": "assistant", "content": answer})
-            with st.chat_message("assistant"):
-                st.markdown(answer)
-    else:
-        st.error("Gemini AI is not configured. Please check your API key and try again.")
+            # Display chat history
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+            
+            # Get user input
+            if prompt := st.chat_input("Ask your laptop questions here..."):
+                # Add user message to chat history
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                
+                # Display user message
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                
+                # Check if it's a recommendation request
+                is_recommendation = any(keyword in prompt.lower() for keyword in ["recommend", "suggest", "buy", "purchase", "budget"])
+                
+                with st.chat_message("assistant"):
+                    message_placeholder = st.empty()
+                    
+                    try:
+                        if is_recommendation:
+                            # Extract budget from prompt if present
+                            import re
+                            budget_match = re.search(r'(\d+),?(\d+)?', prompt)
+                            budget = 70000  # Default budget
+                            if budget_match:
+                                budget_str = budget_match.group(0).replace(',', '')
+                                budget = int(budget_str)
+                            
+                            # Get recommendations from Gemini
+                            gemini_response = gemini_model.generate_content(
+                                f"Provide laptop recommendations for this query: '{prompt}'. Focus on technical specifications, " 
+                                f"price points, and explain why these laptops are good for the user's needs. Be specific and concise."
+                            ).text
+                            
+                            # Get additional recommendations from web scraping
+                            laptop_recommendations = scrape_laptop_data(budget, prompt)
+                            
+                            # Combine the responses
+                            response = f"{gemini_response}\n\n### Current Market Recommendations:\n"
+                            for laptop in laptop_recommendations:
+                                response += f"- **{laptop['name']}** - ₹{laptop['price']:,} - {laptop['specs']}\n"
+                        else:
+                            # Get a regular response from Gemini
+                            response = gemini_model.generate_content(
+                                f"Answer this laptop-related question as an expert: '{prompt}'. " 
+                                f"Provide accurate, helpful information with technical details where appropriate."
+                            ).text
+                        
+                        message_placeholder.markdown(response)
+                        st.session_state.messages.append({"role": "assistant", "content": response})
+                    except Exception as e:
+                        error_msg = f"Sorry, I encountered an error: {str(e)}"
+                        message_placeholder.error(error_msg)
+                        st.session_state.messages.append({"role": "assistant", "content": error_msg})
+            
+            # Show budget-based recommendation form
+            with stylable_container(
+                key="recommendation_form",
+                css_styles="""
+                    {
+                        background-color: #1E1E1E;
+                        border-radius: 10px;
+                        padding: 20px;
+                        margin-top: 30px;
+                        overflow: hidden;
+                    }
+                """
+            ):
+                st.subheader("Quick Recommendation Tool")
+                
+                # Wrap the recommendation tool in a form
+                with st.form(key='recommendation_form_inner'):
+                    rec_col1, rec_col2 = st.columns(2)
+                    
+                    with rec_col1:
+                        budget = st.number_input("Your Budget (₹)", min_value=20000, max_value=200000, value=70000, step=5000, key="budget_input")
+                        use_case = st.selectbox("Primary Use", [
+                            "General/Everyday Use", 
+                            "Gaming", 
+                            "Video Editing/Graphic Design",
+                            "Programming/Development",
+                            "Business/Office Work",
+                            "Student"
+                        ], key="use_case_select")
+                    
+                    with rec_col2:
+                        portability = st.slider("Portability Importance", 1, 10, 5, key="portability_slider")
+                        brand_preference = st.multiselect("Brand Preference (Optional)", 
+                            ["No Preference", "HP", "Dell", "Lenovo", "ASUS", "Acer", "Apple", "MSI"], 
+                            key="brand_multi")
+                    
+                    # Center the button
+                    _, rec_btn_col, _ = st.columns([1, 2, 1])
+                    with rec_btn_col:
+                        submit_rec = st.form_submit_button("Get Personalized Recommendations")
+                    
+                    # IMPORTANT: The code below will execute when the form is submitted
+                    # It must be inside the form context
+                    if submit_rec:
+                        # Create a prompt based on the form inputs
+                        recommendation_prompt = (
+                            f"Recommend laptops for a budget of ₹{budget} for {use_case}. "
+                            f"Portability importance: {portability}/10. "
+                        )
+                        
+                        if brand_preference and "No Preference" not in brand_preference:
+                            recommendation_prompt += f"Preferred brands: {', '.join(brand_preference)}. "
+                        
+                        # Add this to the chat
+                        st.session_state.messages.append({"role": "user", "content": recommendation_prompt})
+                        
+                        # Using st.spinner to show a loading indicator
+                        with st.spinner("Getting recommendations..."):
+                            try:
+                                # Get recommendations from Gemini
+                                gemini_response = gemini_model.generate_content(
+                                    f"You are a laptop expert. {recommendation_prompt} "
+                                    f"Provide 3 specific laptop models with exact specifications and price ranges. "
+                                    f"Format your response with clear headings and bullet points for each recommendation. "
+                                    f"For each recommendation, explain why it's a good fit for the use case."
+                                ).text
+                                
+                                # Get additional recommendations from web scraping
+                                laptop_recommendations = scrape_laptop_data(budget, use_case)
+                                
+                                # Combine the responses
+                                response = f"{gemini_response}\n\n### Market Availability:\n"
+                                for laptop in laptop_recommendations:
+                                    response += f"- **{laptop['name']}** - ₹{laptop['price']:,} - {laptop['specs']}\n"
+                                
+                                # Display the recommendation in the chat history
+                                st.session_state.messages.append({"role": "assistant", "content": response})
+                                
+                                # Force a rerun to update the chat history
+                                st.experimental_rerun()
+                            except Exception as e:
+                                error_msg = f"Sorry, I encountered an error: {str(e)}"
+                                st.error(error_msg)
+                                st.session_state.messages.append({"role": "assistant", "content": error_msg})
+                                # Force a rerun to update the chat history
+                                st.experimental_rerun()
+        else:
+            st.error("Could not initialize Gemini AI. Please check your API key and try again.")
