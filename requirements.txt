@@ -7,3 +7,4 @@ xgboost
 tensorflow
 joblib
 google-generativeai
+streamlit-extras
