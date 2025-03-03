@@ -215,26 +215,22 @@ with tab2:
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     
-    if 'api_key' not in st.session_state:
-        st.session_state.api_key = os.environ.get("GEMINI_API_KEY", "")
-    
-    # API key input
-    with st.expander("Configure Gemini API"):
-        api_key = st.text_input("Enter your Gemini API Key:", value=st.session_state.api_key, type="password")
-        if st.button("Save API Key"):
-            st.session_state.api_key = api_key
-            st.success("API Key saved!")
-    
-    # Configure Gemini if API key is available
-    if st.session_state.api_key:
-        try:
-            genai.configure(api_key=st.session_state.api_key)
+    # Set up Gemini API - You'll need to add your API key in the code or environment variables
+    try:
+        # Get API key from environment variable
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+        if api_key:
+            genai.configure(api_key=api_key)
             model = genai.GenerativeModel('gemini-pro')
-        except Exception as e:
-            st.error(f"Error configuring Gemini API: {e}")
+            is_configured = True
+        else:
+            # Fallback message - this will only be visible to developers, not end users
+            st.info("Note to developer: Set the GEMINI_API_KEY environment variable")
+            is_configured = False
             model = None
-    else:
-        st.info("Please enter your Gemini API key to enable the AI expert")
+    except Exception as e:
+        st.error("Error initializing AI assistant")
+        is_configured = False
         model = None
     
     # Display chat history
@@ -250,7 +246,7 @@ with tab2:
             st.markdown(prompt)
         
         # Generate AI response
-        if model:
+        if is_configured:
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 full_response = ""
@@ -282,4 +278,4 @@ with tab2:
                     message_placeholder.markdown(f"Error generating response: {str(e)}")
         else:
             with st.chat_message("assistant"):
-                st.markdown("Please configure the Gemini API key to enable AI responses.")
+                st.markdown("AI assistant is currently unavailable. Please try again later.")
