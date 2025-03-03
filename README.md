@@ -16,3 +16,8 @@ There are 11 features and 1304 entries in this dataset. The different features a
 - **`OpSys`** - The type of operating system present in the laptop, e.g., Windows, MacOS, Linux, etc.
 - **`Weight`** - The weight of the laptop in kgs.
 - **`Price`** - The price of the laptop in INR.
+
+**BONUS FEATURE**
+
+This comes with a specialized chatbot:
+![image](https://github.com/user-attachments/assets/9618a372-0633-427b-a121-a6d234108224)
