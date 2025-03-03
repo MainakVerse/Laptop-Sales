@@ -11,7 +11,7 @@ import base64
 
 # Configure page
 st.set_page_config(
-    page_title="TechPrice AI",
+    page_title="Laptech AI",
     page_icon="💻",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -109,16 +109,16 @@ resources = load_resources()
 # Sidebar
 with st.sidebar:
     # Logo (placeholder - replace with actual logo path)
-    st.image("https://via.placeholder.com/150x150", width=150)
+    st.image("https://static.vecteezy.com/system/resources/thumbnails/013/441/060/small_2x/open-laptop-icon-illustration-png.png", width=150)
     
-    st.markdown("<h1 style='color:#00FF7F;'>TechPrice AI</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color:#00FF7F;'>Laptech AI</h1>", unsafe_allow_html=True)
     
     st.markdown("""
-    <p style='color:#00FF7F;'>TechPrice AI is a cutting-edge tool that leverages machine learning to predict laptop prices based on specifications. Our AI assistant also provides expert advice to help you make informed purchasing decisions in the ever-evolving tech market.</p>
+    <p style='color:#00FF7F;'>Laptech AI is a cutting-edge tool that leverages machine learning to predict laptop prices based on specifications. Our AI assistant also provides expert advice to help you make informed purchasing decisions in the ever-evolving tech market.</p>
     """, unsafe_allow_html=True)
     
     add_vertical_space(2)
-    st.markdown("<p style='color:#00FF7F; text-align:center;'>© 2025 TechPrice AI</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#00FF7F; text-align:center;'>© 2025 Laptech AI</p>", unsafe_allow_html=True)
 
 # Main content with tabs
 tab1, tab2 = st.tabs(["💲 Price Prediction", "🤖 Expert Advice"])
