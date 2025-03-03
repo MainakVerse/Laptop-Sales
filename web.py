@@ -119,6 +119,7 @@ with st.sidebar:
     
     add_vertical_space(2)
     st.markdown("<p style='color:#00FF7F; text-align:center;'>© 2025 Laptech AI</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#00FF7F; text-align:center;'>Made with 💚 by Mainak</p>", unsafe_allow_html=True)
 
 # Main content with tabs
 tab1, tab2 = st.tabs(["💲 Price Prediction", "🤖 Expert Advice"])
