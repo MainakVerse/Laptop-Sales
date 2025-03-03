@@ -2,10 +2,8 @@ import os
 import joblib
 import numpy as np
 import streamlit as st
-import google.generativeai as genai
 from streamlit_extras.stylable_container import stylable_container
-import requests
-from bs4 import BeautifulSoup
+import google.generativeai as genai
 
 # Set page configuration
 st.set_page_config(
@@ -15,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Apply custom CSS for modern dark theme with fixed widget widths
+# Apply custom CSS with improved styling and fixes for width issues
 st.markdown("""
 <style>
     /* Main background and text colors */
@@ -30,39 +28,14 @@ st.markdown("""
         font-weight: 600;
     }
     
-    /* Form elements - FIX WIDTH ISSUES */
-    .stSelectbox, .stNumberInput, .stSlider {
-        background-color: #1E1E1E;
-    }
-    
-    /* Fix for overflowing select boxes */
+    /* Fix width issues for form elements */
     div[data-baseweb="select"] {
-        max-width: 100%;
+        width: 100% !important;
+        max-width: 100% !important;
     }
     
-    div[data-baseweb="select"] > div {
-        max-width: 100%;
-    }
-    
-    /* Fix for number inputs */
-    .stNumberInput input {
-        max-width: 100%;
-    }
-    
-    /* Fix for slider width */
-    .stSlider [data-testid="stThumbValue"] {
-        width: auto !important;
-    }
-    
-    /* Make selectbox dropdown stay within container */
-    div[data-baseweb="popover"] {
-        max-width: 100%;
-        overflow-x: auto;
-    }
-    
-    /* Improve form field container spacing */
-    .row-widget {
-        padding: 0.5rem 0;
+    div[data-baseweb="base-input"] {
+        width: 100% !important;
     }
     
     /* Button styling */
@@ -74,7 +47,6 @@ st.markdown("""
         border: none;
         padding: 10px 24px;
         transition: all 0.3s ease;
-        width: auto;
     }
     
     .stButton button:hover {
@@ -82,14 +54,13 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
     
-    /* Card/Box styling */
+    /* Card styling */
     .bento-box {
         background-color: #1E1E1E;
         border-radius: 12px;
         padding: 20px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         margin-bottom: 20px;
-        overflow: hidden; /* Prevent content overflow */
     }
     
     /* Tab styling */
@@ -111,7 +82,7 @@ st.markdown("""
         font-weight: 600;
     }
     
-    /* Success message styling */
+    /* Message styling */
     .success-box {
         background-color: #1E1E1E;
         border-left: 5px solid #03DAC6;
@@ -120,89 +91,69 @@ st.markdown("""
         margin: 20px 0;
     }
     
-    /* Warning message styling */
-    .stWarning {
-        background-color: rgba(255, 171, 0, 0.1);
+    .warning-box {
+        background-color: #1E1E1E;
         border-left: 5px solid #FFAB00;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
     }
     
-    /* Error message styling */
-    .stError {
-        background-color: rgba(207, 102, 121, 0.1);
+    .error-box {
+        background-color: #1E1E1E;
         border-left: 5px solid #CF6679;
-    }
-    
-    /* Make containers responsive */
-    @media (max-width: 1200px) {
-        .stSelectbox, .stNumberInput {
-            min-width: 0;
-            width: 100%;
-        }
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Load models and data
+# Load models and data with improved error handling
 @st.cache_resource
 def load_resources():
     resources = {}
-    file_path = './Models/laptop_dataset.pkl'
-    model_path = './Models/XGBoost_regressor_model.pkl'
-    encoder_path = './Models/encoder.pkl'
+    file_paths = {
+        'df': './Models/laptop_dataset.pkl',
+        'model': './Models/XGBoost_regressor_model.pkl',
+        'encoder': './Models/encoder.pkl'
+    }
     
-    try:
-        if os.path.exists(file_path):
-            with open(file_path, 'rb') as file:
-                resources['df'] = joblib.load(file)
-        else:
-            st.error(f"File not found: {file_path}")
-            resources['df'] = None
+    for key, path in file_paths.items():
+        try:
+            if os.path.exists(path):
+                resources[key] = joblib.load(path)
+            else:
+                st.error(f"File not found: {path}")
+                resources[key] = None
+        except Exception as e:
+            st.error(f"Error loading {key}: {e}")
+            resources[key] = None
             
-        if os.path.exists(model_path):
-            with open(model_path, 'rb') as file:
-                resources['model'] = joblib.load(file)
-        else:
-            st.error(f"File not found: {model_path}")
-            resources['model'] = None
-            
-        if os.path.exists(encoder_path):
-            with open(encoder_path, 'rb') as file:
-                resources['encoder'] = joblib.load(file)
-        else:
-            st.error(f"File not found: {encoder_path}")
-            resources['encoder'] = None
-    except Exception as e:
-        st.error(f"Error loading resources: {e}")
-        
     return resources
 
-resources = load_resources()
-df = resources.get('df')
-model = resources.get('model')
-encoder = resources.get('encoder')
-
-# Initialize session state for chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Configure Gemini AI (replace with your API key)
+# Configure Gemini AI
+@st.cache_resource
 def configure_gemini():
     try:
-        # Replace with your actual API key
-        genai.configure(api_key=os.getenv('GEMINI_API_KEY', 'your-api-key-here'))
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
+            st.warning("Gemini API key not found. Please set the GEMINI_API_KEY environment variable.")
+            return None
+            
+        genai.configure(api_key=api_key)
         return genai.GenerativeModel('gemini-1.0-pro')
     except Exception as e:
         st.error(f"Error configuring Gemini AI: {e}")
         return None
 
-# Web scraping function for laptop recommendations
-def scrape_laptop_data(budget, requirements):
+# Get laptop recommendations based on budget and requirements
+def get_laptop_recommendations(budget, requirements):
     try:
-        # This is a placeholder. In a real application, you would implement proper web scraping
-        # of laptop data from review sites or e-commerce platforms
-        st.info("Note: In a production environment, this would scrape real-time data from trusted sources.")
+        # In a real app, this would connect to a real-time data source
+        st.info("Note: In a production environment, this would fetch real-time data from trusted sources.")
         
-        # For demonstration, we'll return sample data based on the budget
+        # Example data structured by budget range
         if budget < 50000:
             return [
                 {"name": "Acer Aspire 5", "price": 45999, "specs": "i5, 8GB RAM, 512GB SSD"},
@@ -219,8 +170,18 @@ def scrape_laptop_data(budget, requirements):
                 {"name": "MacBook Air M2", "price": 102999, "specs": "M2, 8GB RAM, 256GB SSD"}
             ]
     except Exception as e:
-        st.error(f"Error scraping data: {e}")
+        st.error(f"Error getting recommendations: {e}")
         return []
+
+# Initialize resources
+resources = load_resources()
+df = resources.get('df')
+model = resources.get('model')
+encoder = resources.get('encoder')
+
+# Initialize session state for chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 # Main app layout with tabs
 tab1, tab2 = st.tabs(["💰 Price Prediction", "💬 Expert Advice"])
@@ -229,195 +190,189 @@ tab1, tab2 = st.tabs(["💰 Price Prediction", "💬 Expert Advice"])
 with tab1:
     st.markdown("<h1 style='text-align: center; color: #BB86FC;'>Laptop Price Predictor</h1>", unsafe_allow_html=True)
     
-    if df is not None:
-        # Use custom container to limit the form width
-        with st.container():
-            # Create a centered container with max-width
-            col_spacer1, form_col, col_spacer2 = st.columns([1, 10, 1])
-            
-            with form_col:
-                with st.form(key='specs_form'):
-                    col1, col2 = st.columns(2)
+    if df is not None and model is not None and encoder is not None:
+        # Create a centered container with appropriate spacing
+        col_spacer1, form_col, col_spacer2 = st.columns([1, 10, 1])
+        
+        with form_col:
+            with st.form(key='specs_form'):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    with stylable_container(
+                        key="brand_box",
+                        css_styles="""
+                            {
+                                background-color: #1E1E1E;
+                                border-radius: 10px;
+                                padding: 20px;
+                                margin-bottom: 20px;
+                            }
+                        """
+                    ):
+                        st.subheader("🏢 Brand & Type")
+                        company = st.selectbox("Select a brand", ["Select"] + sorted(list(df['Company'].unique())), key="brand_select")
+                        type_name = st.selectbox("Select Laptop type", ["Select"] + sorted(list(df['TypeName'].unique())), key="type_select")
+                        weight = st.number_input('Weight (kg)', step=0.1, value=1.4, min_value=0.5, max_value=5.0, key="weight_input")
                     
-                    with col1:
-                        with stylable_container(
-                            key="brand_box",
-                            css_styles="""
-                                {
-                                    background-color: #1E1E1E;
-                                    border-radius: 10px;
-                                    padding: 20px;
-                                    margin-bottom: 20px;
-                                    overflow: hidden;
-                                }
-                            """
-                        ):
-                            st.subheader("🏢 Brand & Type")
-                            company = st.selectbox("Select a brand", ["Select"] + list(df['Company'].unique()), key="brand_select")
-                            type_name = st.selectbox("Select Laptop type", ["Select"] + list(df['TypeName'].unique()), key="type_select")
-                            weight = st.number_input('Weight (kg)', step=0.1, value=1.4, min_value=0.5, max_value=5.0, key="weight_input")
+                    with stylable_container(
+                        key="display_box",
+                        css_styles="""
+                            {
+                                background-color: #1E1E1E;
+                                border-radius: 10px;
+                                padding: 20px;
+                                margin-bottom: 20px;
+                            }
+                        """
+                    ):
+                        st.subheader("🖥️ Display Features")
+                        display_col1, display_col2 = st.columns(2)
+                        with display_col1:
+                            touchscreen = st.checkbox("Touchscreen", key="touch_check")
+                        with display_col2:
+                            ips = st.checkbox("IPS Panel", key="ips_check")
                         
-                        with stylable_container(
-                            key="display_box",
-                            css_styles="""
-                                {
-                                    background-color: #1E1E1E;
-                                    border-radius: 10px;
-                                    padding: 20px;
-                                    margin-bottom: 20px;
-                                    overflow: hidden;
-                                }
-                            """
-                        ):
-                            st.subheader("🖥️ Display Features")
-                            display_col1, display_col2 = st.columns(2)
-                            with display_col1:
-                                touchscreen = st.checkbox("Touchscreen", key="touch_check")
-                            with display_col2:
-                                ips = st.checkbox("IPS Panel", key="ips_check")
-                            
-                            screen_size = st.number_input('Screen Size (inches)', min_value=10.0, max_value=20.0, step=0.1, value=15.6, key="screen_input")
-                            resolution = st.selectbox("Resolution", [
-                                "Select", '1920x1080', '1366x768', '1600x900', 
-                                '3480x2160', '3200x1800', '2800x1800', 
-                                '2560x1440', '2304x1440'
-                            ], key="res_select")
-                    
-                    with col2:
-                        with stylable_container(
-                            key="performance_box",
-                            css_styles="""
-                                {
-                                    background-color: #1E1E1E;
-                                    border-radius: 10px;
-                                    padding: 20px;
-                                    margin-bottom: 20px;
-                                    overflow: hidden;
-                                }
-                            """
-                        ):
-                            st.subheader("⚡ Performance")
-                            ram = st.slider("RAM Size (GB)", min_value=2, max_value=64, step=2, value=8, key="ram_slider")
-                            processor = st.selectbox("Processor", ["Select"] + list(df['Processor'].unique()), key="proc_select")
-                            gpu = st.selectbox("GPU", ["No GPU"] + list(df['Gpu'].unique()), key="gpu_select")
+                        screen_size = st.number_input('Screen Size (inches)', min_value=10.0, max_value=20.0, step=0.1, value=15.6, key="screen_input")
                         
-                        with stylable_container(
-                            key="storage_box",
-                            css_styles="""
-                                {
-                                    background-color: #1E1E1E;
-                                    border-radius: 10px;
-                                    padding: 20px;
-                                    margin-bottom: 20px;
-                                    overflow: hidden;
-                                }
-                            """
-                        ):
-                            st.subheader("💾 Storage")
-                            storage_col1, storage_col2 = st.columns(2)
-                            with storage_col1:
-                                hdd = st.selectbox("HDD Size (GB)", [0, 128, 256, 512, 1024, 2048], key="hdd_select")
-                            with storage_col2:
-                                ssd = st.selectbox("SSD Size (GB)", [0, 8, 128, 256, 512, 1024], key="ssd_select")
+                        # Sort resolutions for better UX
+                        resolutions = sorted([
+                            '1920x1080', '1366x768', '1600x900', 
+                            '3480x2160', '3200x1800', '2800x1800', 
+                            '2560x1440', '2304x1440'
+                        ])
+                        resolution = st.selectbox("Resolution", ["Select"] + resolutions, key="res_select")
+                
+                with col2:
+                    with stylable_container(
+                        key="performance_box",
+                        css_styles="""
+                            {
+                                background-color: #1E1E1E;
+                                border-radius: 10px;
+                                padding: 20px;
+                                margin-bottom: 20px;
+                            }
+                        """
+                    ):
+                        st.subheader("⚡ Performance")
+                        ram = st.slider("RAM Size (GB)", min_value=2, max_value=64, step=2, value=8, key="ram_slider")
+                        processor = st.selectbox("Processor", ["Select"] + sorted(list(df['Processor'].unique())), key="proc_select")
+                        gpu = st.selectbox("GPU", ["No GPU"] + sorted(list(df['Gpu'].unique())), key="gpu_select")
+                    
+                    with stylable_container(
+                        key="storage_box",
+                        css_styles="""
+                            {
+                                background-color: #1E1E1E;
+                                border-radius: 10px;
+                                padding: 20px;
+                                margin-bottom: 20px;
+                            }
+                        """
+                    ):
+                        st.subheader("💾 Storage")
+                        storage_col1, storage_col2 = st.columns(2)
+                        with storage_col1:
+                            hdd = st.selectbox("HDD Size (GB)", [0, 128, 256, 512, 1024, 2048], key="hdd_select")
+                        with storage_col2:
+                            ssd = st.selectbox("SSD Size (GB)", [0, 8, 128, 256, 512, 1024], key="ssd_select")
+                    
+                    with stylable_container(
+                        key="os_box",
+                        css_styles="""
+                            {
+                                background-color: #1E1E1E;
+                                border-radius: 10px;
+                                padding: 20px;
+                            }
+                        """
+                    ):
+                        st.subheader("🖥️ Operating System")
+                        os_laptop = st.selectbox("Operating System", ["Select"] + sorted(list(df['OpSys'].unique())), key="os_select")
+                
+                # Center the button
+                _, btn_col, _ = st.columns([1, 2, 1])
+                with btn_col:
+                    predict_btn = st.form_submit_button("Predict Price")
+                
+                if predict_btn:
+                    if (company != "Select" and type_name != "Select" and resolution != "Select" 
+                        and processor != "Select" and os_laptop != "Select"):
                         
-                        with stylable_container(
-                            key="os_box",
-                            css_styles="""
-                                {
-                                    background-color: #1E1E1E;
-                                    border-radius: 10px;
-                                    padding: 20px;
-                                    overflow: hidden;
-                                }
-                            """
-                        ):
-                            st.subheader("🖥️ Operating System")
-                            os_laptop = st.selectbox("Operating System", ["Select"] + list(df['OpSys'].unique()), key="os_select")
-                    
-                    # Center the button
-                    _, btn_col, _ = st.columns([1, 2, 1])
-                    with btn_col:
-                        predict_btn = st.form_submit_button("Predict Price")
-                    
-                    if predict_btn:
-                        if (company != "Select" and type_name != "Select" and resolution != "Select" 
-                            and processor != "Select" and os_laptop != "Select"):
-                            
+                        try:
                             # Calculate PPI
-                            x = resolution.split('x')[0]
-                            y = resolution.split('x')[1]
-                            ppi = (int(x)**2 + int(y)**2)**0.5 / screen_size
+                            x_res, y_res = map(int, resolution.split('x'))
+                            ppi = (x_res**2 + y_res**2)**0.5 / screen_size
                             
-                            # Prepare query
+                            # Prepare query with proper types
                             query = np.array([
-                                str(company), str(type_name), int(ram), str(gpu), str(os_laptop), 
+                                company, type_name, int(ram), 
+                                gpu if gpu != "No GPU" else "", os_laptop, 
                                 float(weight), int(touchscreen), int(ips), float(ppi), 
-                                str(processor), int(hdd), int(ssd)
+                                processor, int(hdd), int(ssd)
                             ])
                             
                             # Make prediction
-                            try:
-                                query = encoder.transform([query])
-                                result = model.predict(query)
-                                result = np.exp(result)
-                                
-                                # Display result in a stylish box
-                                st.markdown(f"""
-                                <div class='success-box'>
-                                    <h2 style='color: #03DAC6; margin-bottom: 10px;'>Price Prediction</h2>
-                                    <p style='font-size: 24px; font-weight: bold;'>
-                                        The estimated price of the laptop is ₹{result[0]:,.2f}
-                                    </p>
-                                </div>
-                                """, unsafe_allow_html=True)
-                                
-                                # Show specification summary
-                                st.markdown("<h3>Specification Summary</h3>", unsafe_allow_html=True)
-                                spec_col1, spec_col2 = st.columns(2)
-                                
-                                with spec_col1:
-                                    with stylable_container(
-                                        key="spec_summary_1",
-                                        css_styles="""
-                                            {
-                                                background-color: #1E1E1E;
-                                                border-radius: 10px;
-                                                padding: 20px;
-                                                overflow: hidden;
-                                            }
-                                        """
-                                    ):
-                                        st.markdown(f"""
-                                        - **Brand**: {company}
-                                        - **Type**: {type_name}
-                                        - **Processor**: {processor}
-                                        - **RAM**: {ram} GB
-                                        """)
-                                
-                                with spec_col2:
-                                    with stylable_container(
-                                        key="spec_summary_2",
-                                        css_styles="""
-                                            {
-                                                background-color: #1E1E1E;
-                                                border-radius: 10px;
-                                                padding: 20px;
-                                                overflow: hidden;
-                                            }
-                                        """
-                                    ):
-                                        st.markdown(f"""
-                                        - **Display**: {screen_size}" {resolution} {'(Touchscreen)' if touchscreen else ''}
-                                        - **Storage**: {hdd} GB HDD + {ssd} GB SSD
-                                        - **GPU**: {gpu}
-                                        - **OS**: {os_laptop}
-                                        """)
-                            except Exception as e:
-                                st.error(f"Error making prediction: {e}")
-                        else:
-                            st.warning("Please fill in all required fields")
+                            query = encoder.transform([query])
+                            result = model.predict(query)
+                            predicted_price = np.exp(result)[0]
+                            
+                            # Display result in a stylish box
+                            st.markdown(f"""
+                            <div class='success-box'>
+                                <h2 style='color: #03DAC6; margin-bottom: 10px;'>Price Prediction</h2>
+                                <p style='font-size: 24px; font-weight: bold;'>
+                                    The estimated price of the laptop is ₹{predicted_price:,.2f}
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # Show specification summary
+                            st.markdown("<h3>Specification Summary</h3>", unsafe_allow_html=True)
+                            spec_col1, spec_col2 = st.columns(2)
+                            
+                            with spec_col1:
+                                with stylable_container(
+                                    key="spec_summary_1",
+                                    css_styles="""
+                                        {
+                                            background-color: #1E1E1E;
+                                            border-radius: 10px;
+                                            padding: 20px;
+                                        }
+                                    """
+                                ):
+                                    st.markdown(f"""
+                                    - **Brand**: {company}
+                                    - **Type**: {type_name}
+                                    - **Processor**: {processor}
+                                    - **RAM**: {ram} GB
+                                    """)
+                            
+                            with spec_col2:
+                                with stylable_container(
+                                    key="spec_summary_2",
+                                    css_styles="""
+                                        {
+                                            background-color: #1E1E1E;
+                                            border-radius: 10px;
+                                            padding: 20px;
+                                        }
+                                    """
+                                ):
+                                    st.markdown(f"""
+                                    - **Display**: {screen_size}" {resolution} {'(Touchscreen)' if touchscreen else ''}
+                                    - **Storage**: {hdd} GB HDD + {ssd} GB SSD
+                                    - **GPU**: {gpu}
+                                    - **OS**: {os_laptop}
+                                    """)
+                        except Exception as e:
+                            st.error(f"Error making prediction: {e}")
+                    else:
+                        st.warning("Please fill in all required fields")
     else:
-        st.error("Data not available. Please check the file path and try again.")
+        st.error("Required models or data not available. Please check the file paths and try again.")
 
 # Tab 2: Expert Advice
 with tab2:
@@ -431,7 +386,7 @@ with tab2:
         gemini_model = configure_gemini()
         
         if gemini_model:
-            # Chat interface
+            # Chat interface with welcome message
             st.markdown("""
             <div style='background-color: #1E1E1E; border-radius: 10px; padding: 20px; margin-bottom: 20px;'>
                 <p>Welcome to the Laptop Expert Advisor! Ask me anything about laptops, and I'll provide expert advice.</p>
@@ -459,15 +414,16 @@ with tab2:
                 with st.chat_message("user"):
                     st.markdown(prompt)
                 
-                # Check if it's a recommendation request
+                # Determine if it's a recommendation request
                 is_recommendation = any(keyword in prompt.lower() for keyword in ["recommend", "suggest", "buy", "purchase", "budget"])
                 
                 with st.chat_message("assistant"):
                     message_placeholder = st.empty()
                     
                     try:
+                        # Handle recommendation requests
                         if is_recommendation:
-                            # Extract budget from prompt if present
+                            # Extract budget from prompt
                             import re
                             budget_match = re.search(r'(\d+),?(\d+)?', prompt)
                             budget = 70000  # Default budget
@@ -476,25 +432,34 @@ with tab2:
                                 budget = int(budget_str)
                             
                             # Get recommendations from Gemini
+                            safety_settings = [
+                                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}
+                            ]
+                            
                             gemini_response = gemini_model.generate_content(
                                 f"Provide laptop recommendations for this query: '{prompt}'. Focus on technical specifications, " 
-                                f"price points, and explain why these laptops are good for the user's needs. Be specific and concise."
+                                f"price points, and explain why these laptops are good for the user's needs. Be specific and concise.",
+                                safety_settings=safety_settings
                             ).text
                             
-                            # Get additional recommendations from web scraping
-                            laptop_recommendations = scrape_laptop_data(budget, prompt)
+                            # Get market recommendations
+                            laptop_recommendations = get_laptop_recommendations(budget, prompt)
                             
-                            # Combine the responses
+                            # Combine responses
                             response = f"{gemini_response}\n\n### Current Market Recommendations:\n"
                             for laptop in laptop_recommendations:
                                 response += f"- **{laptop['name']}** - ₹{laptop['price']:,} - {laptop['specs']}\n"
                         else:
-                            # Get a regular response from Gemini
+                            # Get a regular response for non-recommendation queries
                             response = gemini_model.generate_content(
                                 f"Answer this laptop-related question as an expert: '{prompt}'. " 
                                 f"Provide accurate, helpful information with technical details where appropriate."
                             ).text
                         
+                        # Display the response
                         message_placeholder.markdown(response)
                         st.session_state.messages.append({"role": "assistant", "content": response})
                     except Exception as e:
@@ -511,13 +476,12 @@ with tab2:
                         border-radius: 10px;
                         padding: 20px;
                         margin-top: 30px;
-                        overflow: hidden;
                     }
                 """
             ):
                 st.subheader("Quick Recommendation Tool")
                 
-                # Wrap the recommendation tool in a form
+                # Create the recommendation form
                 with st.form(key='recommendation_form_inner'):
                     rec_col1, rec_col2 = st.columns(2)
                     
@@ -536,6 +500,7 @@ with tab2:
                         portability = st.slider("Portability Importance", 1, 10, 5, key="portability_slider")
                         brand_preference = st.multiselect("Brand Preference (Optional)", 
                             ["No Preference", "HP", "Dell", "Lenovo", "ASUS", "Acer", "Apple", "MSI"], 
+                            default=["No Preference"],
                             key="brand_multi")
                     
                     # Center the button
@@ -543,8 +508,7 @@ with tab2:
                     with rec_btn_col:
                         submit_rec = st.form_submit_button("Get Personalized Recommendations")
                     
-                    # IMPORTANT: The code below will execute when the form is submitted
-                    # It must be inside the form context
+                    # Handle recommendation form submission
                     if submit_rec:
                         # Create a prompt based on the form inputs
                         recommendation_prompt = (
@@ -555,7 +519,7 @@ with tab2:
                         if brand_preference and "No Preference" not in brand_preference:
                             recommendation_prompt += f"Preferred brands: {', '.join(brand_preference)}. "
                         
-                        # Add this to the chat
+                        # Add to chat history
                         st.session_state.messages.append({"role": "user", "content": recommendation_prompt})
                         
                         # Using st.spinner to show a loading indicator
@@ -569,15 +533,15 @@ with tab2:
                                     f"For each recommendation, explain why it's a good fit for the use case."
                                 ).text
                                 
-                                # Get additional recommendations from web scraping
-                                laptop_recommendations = scrape_laptop_data(budget, use_case)
+                                # Get market recommendations
+                                laptop_recommendations = get_laptop_recommendations(budget, use_case)
                                 
-                                # Combine the responses
+                                # Combine responses
                                 response = f"{gemini_response}\n\n### Market Availability:\n"
                                 for laptop in laptop_recommendations:
                                     response += f"- **{laptop['name']}** - ₹{laptop['price']:,} - {laptop['specs']}\n"
                                 
-                                # Display the recommendation in the chat history
+                                # Add to chat history
                                 st.session_state.messages.append({"role": "assistant", "content": response})
                                 
                                 # Force a rerun to update the chat history
@@ -589,4 +553,4 @@ with tab2:
                                 # Force a rerun to update the chat history
                                 st.experimental_rerun()
         else:
-            st.error("Could not initialize Gemini AI. Please check your API key and try again.")
+            st.warning("Gemini AI is not configured. Please check your API key and try again.")
