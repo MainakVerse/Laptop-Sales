@@ -218,10 +218,10 @@ with tab2:
     # Set up Gemini API - You'll need to add your API key in the code or environment variables
     try:
         # Get API key from environment variable
-        api_key = os.environ.get("GEMINI_API_KEY", "")
+        api_key = st.secrets["GEMINI_API_KEY"]
         if api_key:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-pro')
+            model = genai.GenerativeModel('gemini-1.5-pro-latest')
             is_configured = True
         else:
             # Fallback message - this will only be visible to developers, not end users
