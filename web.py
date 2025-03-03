@@ -156,18 +156,18 @@ def get_laptop_recommendations(budget, requirements):
         # Example data structured by budget range
         if budget < 50000:
             return [
-                {"name": "Acer Aspire 5", "price": 45999, "specs": "i5, 8GB RAM, 512GB SSD"},
-                {"name": "Lenovo IdeaPad 3", "price": 42999, "specs": "Ryzen 5, 8GB RAM, 512GB SSD"}
+                {"name": "Acer Aspire 5", "price": 45999, "specs": "i5, 8GB RAM, 512GB SSD, Integrated Graphics"},
+                {"name": "Lenovo IdeaPad 3", "price": 42999, "specs": "Ryzen 5, 8GB RAM, 512GB SSD, Integrated Graphics"}
             ]
         elif budget < 80000:
             return [
-                {"name": "HP Pavilion 15", "price": 75999, "specs": "i7, 16GB RAM, 512GB SSD"},
-                {"name": "Dell Inspiron 15", "price": 72999, "specs": "Ryzen 7, 16GB RAM, 512GB SSD"}
+                {"name": "HP Pavilion 15", "price": 75999, "specs": "i7, 16GB RAM, 512GB SSD, Intel Iris Xe Graphics"},
+                {"name": "Dell Inspiron 15", "price": 72999, "specs": "Ryzen 7, 16GB RAM, 512GB SSD, AMD Radeon Graphics"}
             ]
         else:
             return [
                 {"name": "ASUS ROG Strix G15", "price": 95999, "specs": "i7, 16GB RAM, 1TB SSD, RTX 3060"},
-                {"name": "MacBook Air M2", "price": 102999, "specs": "M2, 8GB RAM, 256GB SSD"}
+                {"name": "MacBook Air M2", "price": 102999, "specs": "M2, 8GB RAM, 256GB SSD, Integrated Graphics"}
             ]
     except Exception as e:
         st.error(f"Error getting recommendations: {e}")
@@ -178,9 +178,6 @@ resources = load_resources()
 df = resources.get('df')
 model = resources.get('model')
 encoder = resources.get('encoder')
-
-#THIS IS IMPORTANT:  Find the actual "no GPU" value in your encoder!
-no_gpu_value = "No GPU"  # REPLACE THIS WITH THE ACTUAL VALUE FROM YOUR ENCODER!
 
 # Initialize session state for chat history
 if "messages" not in st.session_state:
@@ -311,8 +308,7 @@ with tab1:
                             # Prepare query with proper types
                             query = np.array([
                                 company, type_name, int(ram),
-                                gpu if gpu != "No GPU" else no_gpu_value,  # Use the correct "no GPU" value
-                                os_laptop,
+                                gpu if gpu != "No GPU" else "", os_laptop,
                                 float(weight), int(touchscreen), int(ips), float(ppi),
                                 processor, int(hdd), int(ssd)
                             ])
@@ -376,11 +372,7 @@ with tab1:
                     else:
                         st.warning("Please fill in all required fields")
     else:
-        st.error("Required models or data not available. Please check the file paths and ensure the files exist.")
-        st.info("Please make sure the 'Models' directory is in the same directory as this script, and that the following files are present:\n"
-                "- laptop_dataset.pkl\n"
-                "- XGBoost_regressor_model.pkl\n"
-                "- encoder.pkl")
+        st.error("Required models or data not available. Please check the file paths and try again.")
 
 # Tab 2: Expert Advice
 with tab2:
@@ -428,5 +420,4 @@ with tab2:
                 with st.chat_message("assistant"):
                     st.markdown(ai_response)
         else:
-            st.error("Gemini AI is not configured.  Please set the `GEMINI_API_KEY` environment variable and restart the app.")
-            st.info("You can find instructions on how to obtain a Gemini API key at [Google AI Studio](https://makersuite.google.com/app/apikey).") #Added link to get API Key
+            st.error("Gemini AI is not configured.  Please set the `GEMINI_API_KEY` environment variable.")
